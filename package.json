@@ -1,0 +1,19 @@
+{
+  "name": "shopping-bill-recorder-skill",
+  "version": "1.0.0",
+  "description": "shopping bill recorder skill for alexa",
+  "main": "skill.js",
+  "dependencies": {
+    "alexa-message-builder": "^1.2.0",
+    "alexa-skill-kit": "^1.0.0",
+    "ask-sdk-core": "^2.3.0",
+    "ask-sdk-model": "^1.9.0",
+    "googleapis": "^35.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}

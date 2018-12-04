@@ -1,0 +1,7 @@
+{
+  "lambda": {
+    "role": "shopping-bill-recorder-skill-executor",
+    "name": "shopping-bill-recorder-skill",
+    "region": "eu-west-1"
+  }
+}
