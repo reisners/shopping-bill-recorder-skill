@@ -4,9 +4,10 @@ const { google } = require('googleapis');
 const alexaSkillKit = require('alexa-skill-kit')
 const MessageTemplate = require('alexa-message-builder')
 
-const OAuth2Client = google.auth.OAuth2;
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 
+const spreadsheetId = '1vWmEGdj8VS0tfqwSl8WCbIPonpcjMsNKb7H0nWeMAAg';
+const range = 'Bills!A2:D';
 
 function shoppingBillRecorderSkill(event, context) {
   // Do something with `event` and use `callback` to reply
@@ -16,53 +17,39 @@ function shoppingBillRecorderSkill(event, context) {
   alexaSkillKit(event, context, message => {
 
     console.log("message="+JSON.stringify(message));
-    console.log("context="+JSON.stringify(context));
 
     if (message.type === 'LaunchRequest') {
-      return new MessageTemplate()
-        .addText(`Willkommen zur Belegerfassung. Sage Einkauf bei SHOP am DATUM für BETRAG Euro.`)
-        .addRepromptText(`Sage Einkauf bei SHOP am DATUM für BETRAG Euro.`)
+      if (message.user.accessToken) {
+        return new MessageTemplate()
+        .addText(`Willkommen zur Belegerfassung. Sage: Einkauf für CATEGORY bei SHOP am DATUM für BETRAG.`)
+        .addRepromptText(`Sage: Einkauf für CATEGORY bei SHOP am DATUM für BETRAG.`)
         .keepSession()
         .get();
+      } else {
+        return new MessageTemplate()
+        .addText(`Zur Belegerfassung aktiviere bitte zuerst die Kontoverknüpfung.`)
+        .get();
+      }
     }
 
     if (message.type === 'IntentRequest') {
       if (message.intent.name === 'RecordBill') {
-        //const accessToken = context.System.user.accessToken;
-        const shop = message.intent.slots.SHOP.value;
-        const date = message.intent.slots.DATE.value;
-        const amount_euros = message.intent.slots.AMOUNT_EUROS.value;
-        const amount_cents = message.intent.slots.AMOUNT_CENTS.value;
-        const amount = amount_euros + amount_cents/100;
         
-        /*
-        var request = {
-          // The spreadsheet to apply the updates to.
-          spreadsheetId: '1vWmEGdj8VS0tfqwSl8WCbIPonpcjMsNKb7H0nWeMAAg',
+        const accessToken = message.user.accessToken;
+        const shop = extractSlotValue(message.intent.slots.SHOP);
+        const date = message.intent.slots.DATE.value;
+        const category = extractSlotValue(message.intent.slots.CATEGORY);
+
+        const amount_euros = message.intent.slots.AMOUNT_EUROS.value ? parseInt(message.intent.slots.AMOUNT_EUROS.value) : 0;
+        const amount_cents = message.intent.slots.AMOUNT_CENTS.value ? parseInt(message.intent.slots.AMOUNT_CENTS.value) : 0;
+        const amount = amount_euros + amount_cents/100.0;
+
+        console.log("amount_euros="+amount_euros+", amount_cents="+amount_cents+", amount="+amount);
+
+        const oAuth2Client = new google.auth.OAuth2();
+        oAuth2Client.setCredentials({access_token: accessToken});
       
-          resource: {
-            // A list of updates to apply to the spreadsheet.
-            // Requests will be applied in the order they are specified.
-            // If any request is not valid, no requests will be applied.
-            requests: [],  // TODO: Update placeholder value.
-      
-            // TODO: Add desired properties to the request body.
-          },
-      
-          auth: authClient,
-        };
-      
-        sheets.spreadsheets.batchUpdate(request, function(err, response) {
-          if (err) {
-            console.error(err);
-            return;
-          }
-      
-          // TODO: Change code below to process the `response` object:
-          console.log(JSON.stringify(response, null, 2));
-        });
-        */
-        return "Also: du hast am "+date+" bei "+shop+" "+amount+" Euro ausgegeben.";
+        return updateSheet(oAuth2Client, date, shop, amount, category);
       }  
       return "Du hast Intent "+message.intent.name+" aktiviert.";
     }
@@ -70,7 +57,36 @@ function shoppingBillRecorderSkill(event, context) {
     return "War etwas?";
   
   });
-
-
 }
+
+async function updateSheet(auth, date, shop, amount, category) {
+  return new Promise( (resolve, reject) => {
+    const sheets = google.sheets({version: 'v4', auth});
+    sheets.spreadsheets.values.append({
+      spreadsheetId: spreadsheetId,
+      range: range,
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      resource: {
+        values: [
+          [date, shop, amount, category]
+        ]
+      },
+    }, (err, result) => {
+      if (err) {
+        // Handle error.
+        console.log(err);
+        reject("Beim Speichern des Einkaufsbelegs ist ein Fehler aufgetreten.");
+      } else {
+        resolve("Ich habe den Einkaufsbeleg abgespeichert.");
+      }
+    });  
+  });
+}
+
+function extractSlotValue(slot) {
+  console.log("slot="+JSON.stringify(slot));
+  return slot.resolutions.resolutionsPerAuthority[0].values ? slot.resolutions.resolutionsPerAuthority[0].values[0].value.name : slot.value;
+}
+
 exports.handler = shoppingBillRecorderSkill
